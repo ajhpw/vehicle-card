@@ -1,15 +1,17 @@
+import { localize } from './localize/localize.js';
+
 const CARD_VERSION = "1.1.2";
 
 // ─── Editor Schema ────────────────────────────────────────────────────────────
 const EDITOR_SCHEMA = [
-  { name: 'name',          label: 'Name (optional)',               selector: { text: {} } },
-  { name: 'icon',          label: '🎨 Icon',                       selector: { icon: {} } },
-  { name: 'battery_level', label: '🔋 Akkustand (Sensor %)',       selector: { entity: {} } },
-  { name: 'battery_range', label: '📏 Reichweite (Sensor km)',     selector: { entity: {} } },
-  { name: 'charge_status', label: '⚡ Ladestatus (Sensor/Binary)', selector: { entity: {} } },
-  { name: 'fuel_level',    label: '⛽ Tankstand (Sensor %)',       selector: { entity: {} } },
-  { name: 'odometer',      label: '📍 Kilometerstand (Sensor)',    selector: { entity: {} } },
-  { name: 'climate',       label: '❄️ Klimaanlage (Switch)',       selector: { entity: { domain: 'switch' } } },
+  { name: 'name',          selector: { text: {} } },
+  { name: 'icon',          selector: { icon: {} } },
+  { name: 'battery_level', selector: { entity: {} } },
+  { name: 'battery_range', selector: { entity: {} } },
+  { name: 'charge_status', selector: { entity: {} } },
+  { name: 'fuel_level',    selector: { entity: {} } },
+  { name: 'odometer',      selector: { entity: {} } },
+  { name: 'climate',       selector: { entity: { domain: 'switch' } } },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -53,6 +55,11 @@ function _fuelTextColor(pct) {
   return 'var(--primary-text-color, #1c1c1e)';
 }
 
+function _formatNumber(value, hass) {
+  const lang = hass?.selectedLanguage || hass?.language || hass?.locale?.language || navigator.language || 'en';
+  return new Intl.NumberFormat(lang).format(value);
+}
+
 // ─── Editor ──────────────────────────────────────────────────────────────────
 class VehicleCardEditor extends HTMLElement {
   constructor() {
@@ -84,7 +91,7 @@ class VehicleCardEditor extends HTMLElement {
     form.schema       = EDITOR_SCHEMA;
     form.data         = this._config;
     form.hass         = this._hass;
-    form.computeLabel = s => s.label || s.name;
+    form.computeLabel = s => localize(this._hass, `editor.${s.name}`);
     form.addEventListener('value-changed', e => {
       this._config = e.detail.value;
       this.dispatchEvent(new CustomEvent('config-changed', {
@@ -144,11 +151,11 @@ class VehicleCard extends HTMLElement {
       const stCharging = c.charge_state_charging || 'charging';
       const stPlugged  = c.charge_state_plugged  || 'plugged_in';
       if (raw === stCharging || raw === 'on') {
-        text = 'Lädt'; cls = 'badge-charging';
+        text = localize(hass, 'card.charge_charging'); cls = 'badge-charging';
       } else if (raw === stPlugged) {
-        text = 'Verbunden'; cls = 'badge-plugged';
+        text = localize(hass, 'card.charge_plugged'); cls = 'badge-plugged';
       } else if (raw === 'off') {
-        text = 'Bereit'; cls = 'badge-default';
+        text = localize(hass, 'card.charge_ready'); cls = 'badge-default';
       } else if (raw === 'unavailable') {
         text = '—'; cls = 'badge-default';
       } else {
@@ -166,7 +173,7 @@ class VehicleCard extends HTMLElement {
     const unit = _getState(hass, c.odometer)?.attributes?.unit_of_measurement || 'km';
     const num  = parseFloat(val);
     const valid = val !== null && val !== '—' && val !== '?';
-    const disp  = !valid ? (val || '—') : isNaN(num) ? val : num.toLocaleString('de-DE');
+    const disp  = !valid ? (val || '—') : isNaN(num) ? val : _formatNumber(num, hass);
     return `
       <div class="header-pill clickable" data-entity="${c.odometer}">
         <span class="pill-icon">📍</span>
@@ -201,7 +208,7 @@ class VehicleCard extends HTMLElement {
           <div class="vbar-fill" style="height:${barH}%;background:${color}"></div>
         </div>
         <div class="stat-content">
-          <div class="stat-lbl">Akku</div>
+          <div class="stat-lbl">${localize(hass, 'card.battery_label')}</div>
           <div class="stat-num-row">
             <span class="stat-num" style="color:${color}">${numStr}</span><span class="stat-unit-inline" style="color:${color}">%</span>
           </div>
@@ -231,9 +238,9 @@ class VehicleCard extends HTMLElement {
       climateHtml = `
         <div class="climate-pill ${isOn ? 'on' : 'off'}" data-toggle="${c.climate}">
           <span>❄️</span>
-          <span class="climate-lbl">Klima</span>
+          <span class="climate-lbl">${localize(hass, 'card.climate_short_label')}</span>
           <span class="climate-dot"></span>
-          <span>${isOn ? 'AN' : 'AUS'}</span>
+          <span>${isOn ? localize(hass, 'state.on') : localize(hass, 'state.off')}</span>
         </div>`;
     }
 
@@ -243,7 +250,7 @@ class VehicleCard extends HTMLElement {
           <div class="vbar-fill" style="height:${barH}%;background:${barClr}"></div>
         </div>
         <div class="stat-content">
-          <div class="stat-lbl">Tank</div>
+          <div class="stat-lbl">${localize(hass, 'card.fuel_label')}</div>
           <div class="stat-num-row">
             <span class="stat-num" style="color:${txtClr}">${numStr}</span><span class="stat-unit-inline" style="color:${txtClr}">%</span>
           </div>
@@ -260,12 +267,12 @@ class VehicleCard extends HTMLElement {
     return `
       <div class="tile tile-simple clickable" data-entity="${c.climate}">
         <div class="stat-content stat-pad">
-          <div class="stat-lbl">Klimaanlage</div>
+          <div class="stat-lbl">${localize(hass, 'card.climate_label')}</div>
           <div class="climate-pill ${isOn ? 'on' : 'off'}" data-toggle="${c.climate}">
             <span>❄️</span>
-            <span class="climate-lbl">Klima</span>
+            <span class="climate-lbl">${localize(hass, 'card.climate_short_label')}</span>
             <span class="climate-dot"></span>
-            <span>${isOn ? 'AN' : 'AUS'}</span>
+            <span>${isOn ? localize(hass, 'state.on') : localize(hass, 'state.off')}</span>
           </div>
         </div>
       </div>`;
@@ -278,11 +285,11 @@ class VehicleCard extends HTMLElement {
     const unit  = _getState(hass, c.odometer)?.attributes?.unit_of_measurement || 'km';
     const num   = parseFloat(val);
     const valid = val !== null && val !== '—' && val !== '?';
-    const disp  = !valid ? (val || '—') : isNaN(num) ? val : num.toLocaleString('de-DE');
+    const disp  = !valid ? (val || '—') : isNaN(num) ? val : _formatNumber(num, hass);
     return `
       <div class="tile tile-simple clickable" data-entity="${c.odometer}">
         <div class="stat-content stat-pad">
-          <div class="stat-lbl">km-Stand</div>
+          <div class="stat-lbl">${localize(hass, 'card.odometer_label')}</div>
           <div>
             <div class="stat-num stat-num-sm">${disp}</div>
             <div class="stat-unit">${unit}</div>
@@ -515,13 +522,13 @@ class VehicleCard extends HTMLElement {
                     : c.icon)
                 : '🚗'
             }</div>
-            <div class="header-title-text">${c.name || 'Fahrzeug'}</div>
+            <div class="header-title-text">${c.name || localize(this._hass, 'card.default_name')}</div>
           </div>
           ${badge}
         </div>
         ${hasAnyField
           ? `<div class="card-grid">${tiles}</div>`
-          : '<div class="empty-state">Keine Entitäten konfiguriert</div>'
+          : `<div class="empty-state">${localize(this._hass, 'card.empty_state')}</div>`
         }
       </div>
     `;
@@ -569,7 +576,7 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: 'vehicle-card',
   name: 'Vehicle Card',
-  description: 'Fahrzeugstatus Card für Home Assistant',
+  description: 'Vehicle status card for Home Assistant',
   preview: false,
 });
 
