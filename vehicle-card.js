@@ -1,6 +1,92 @@
-import { localize } from './localize/localize.js';
-
 const CARD_VERSION = "1.1.2";
+
+const TRANSLATIONS = {
+  de: {
+    editor: {
+      name: 'Name (optional)',
+      icon: '🎨 Icon',
+      battery_level: '🔋 Akkustand (Sensor %)',
+      battery_range: '📏 Reichweite (Sensor km)',
+      charge_status: '⚡ Ladestatus (Sensor/Binary)',
+      fuel_level: '⛽ Tankstand (Sensor %)',
+      odometer: '📍 Kilometerstand (Sensor)',
+      climate: '❄️ Klimaanlage (Switch)',
+    },
+    card: {
+      default_name: 'Fahrzeug',
+      empty_state: 'Keine Entitäten konfiguriert',
+      battery_label: 'Akku',
+      fuel_label: 'Tank',
+      climate_label: 'Klimaanlage',
+      climate_short_label: 'Klima',
+      odometer_label: 'km-Stand',
+      charge_charging: 'Lädt',
+      charge_plugged: 'Verbunden',
+      charge_ready: 'Bereit',
+    },
+    state: {
+      on: 'AN',
+      off: 'AUS',
+    },
+  },
+  en: {
+    editor: {
+      name: 'Name (optional)',
+      icon: '🎨 Icon',
+      battery_level: '🔋 Battery level (Sensor %)',
+      battery_range: '📏 Range (Sensor km)',
+      charge_status: '⚡ Charge status (Sensor/Binary)',
+      fuel_level: '⛽ Fuel level (Sensor %)',
+      odometer: '📍 Odometer (Sensor)',
+      climate: '❄️ Climate (Switch)',
+    },
+    card: {
+      default_name: 'Vehicle',
+      empty_state: 'No entities configured',
+      battery_label: 'Battery',
+      fuel_label: 'Fuel',
+      climate_label: 'Climate',
+      climate_short_label: 'Climate',
+      odometer_label: 'Odometer',
+      charge_charging: 'Charging',
+      charge_plugged: 'Plugged in',
+      charge_ready: 'Ready',
+    },
+    state: {
+      on: 'On',
+      off: 'Off',
+    },
+  },
+};
+
+function _resolveLanguage(hass) {
+  const raw = hass?.selectedLanguage || hass?.language || localStorage.getItem('selectedLanguage') || navigator.language || 'en';
+  const normalized = String(raw).toLowerCase().replace('-', '_');
+
+  if (normalized.startsWith('de')) return 'de';
+  if (normalized.startsWith('en')) return 'en';
+  return 'en';
+}
+
+function localize(hass, string, search = '', replace = '') {
+  const lang = _resolveLanguage(hass);
+  const resolver = (path, dictionary) => path.split('.').reduce((acc, key) => {
+    if (acc && typeof acc === 'object' && key in acc) {
+      return acc[key];
+    }
+    return undefined;
+  }, dictionary);
+
+  let translated = resolver(string, TRANSLATIONS[lang] || TRANSLATIONS.en);
+  if (typeof translated !== 'string') translated = resolver(string, TRANSLATIONS.en);
+  if (typeof translated !== 'string') translated = string;
+
+  if (search !== '' && replace !== '') {
+    translated = translated.replace(search, replace);
+  }
+
+  return translated;
+}
 
 // ─── Editor Schema ────────────────────────────────────────────────────────────
 const EDITOR_SCHEMA = [
